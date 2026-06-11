@@ -1,0 +1,14 @@
+{
+  "model": "openai/claude-haiku-4-5",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "Hi, I'm Layla. My phone is +966512345678 and my KSA NID is 1234567890. Email me at customer@example.com."
+    }
+  ],
+  "max_tokens": 100
+}
