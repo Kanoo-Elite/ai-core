@@ -1,21 +1,42 @@
 """PDPL guardrails — request-side PII redaction for outbound LLM calls.
 
-v0.1.0 scope: redact PII patterns in an OpenAI Chat Completions request
-payload (across ``messages[].content`` for both string and list-of-parts
-content, plus an optional top-level ``system`` field). Each redaction is
-counted and logged to a structured ``security_log`` event — never the
-redacted-or-original text.
+v0.2.0 scope: unchanged from v0.1.0 in this module. K032 added streaming
+support in the provider layer; this module's behaviour is identical
+across v0.1.0 and v0.2.0. The versioning split for future PDPL work is
+re-stated below for clarity (per K032 sub-decision J).
 
-Coverage in v0.1.0:
+Coverage:
 
 - Emails
 - Phone numbers (E.164 + common Gulf/regional shapes)
 - Saudi National ID (10 digits starting with 1 or 2)
 - Bahraini National ID (9-digit pattern, year-prefix-constrained)
 
-NER (named individuals) deferred to v0.2.0; every ``security_log`` event
-carries ``ner_enabled: false`` so the limitation is grep-able. Response-side
-redaction also deferred to v0.2.0 (paired with streaming).
+Redaction applies across ``messages[].content`` (string and
+list-of-parts shapes) plus an optional top-level ``system`` field. Each
+redaction is counted and logged to a structured ``security_log`` event
+— never the redacted-or-original text. Every ``security_log`` event
+carries ``ner_enabled: false`` and ``response_redaction_enabled: false``
+so the limitations are grep-able.
+
+Future PDPL work (re-versioned per K032 sub-decision J, 2026-06-14):
+
+- **NER (named individuals)** — request-side first. Deferred to
+  **KAIROS-034 / v0.3.0**. Horizontally applicable detector that
+  improves the existing request-side redactor immediately; splits
+  cleanly from response-side.
+- **Response-side redaction** — applies all available detectors
+  (pattern + NER if landed) to the response payload before forwarding.
+  Deferred to **KAIROS-035 / v0.4.0**, decoupled from streaming.
+  Original v0.1.0 docstring framed this as "paired with streaming";
+  K032 deliberately reverses that pairing.
+- **Tool-use field coverage** (``tools[*].function.description``,
+  ``tools[*].function.parameters``, and
+  ``messages[*].tool_calls[*].function.arguments``) — request-side
+  redaction *and* forwarding (v0.1.0/v0.2.0 do not forward these
+  fields at all). Deferred to **KAIROS-036**, conditional trigger
+  (openclaw agent-mode flows start sending tools on the wire; re-run
+  K032 Probe 2 to detect).
 """
 
 from __future__ import annotations

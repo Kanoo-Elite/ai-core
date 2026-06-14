@@ -1,4 +1,8 @@
-"""X3 proof gate — Anthropic provider unit tests.
+"""Anthropic provider unit tests.
+
+Originally X3 proof gate for K020 v0.1.0; extended in K032 v0.2.0 to
+cover KAIROS-037 ``max_completion_tokens`` precedence. Streaming tests
+live in ``test_streaming.py``.
 
 Mocks ``anthropic.Anthropic`` throughout; no real API calls are made.
 """
@@ -127,6 +131,45 @@ def test_request_translation_default_max_tokens():
     provider.call({"model": "m", "messages": []})
     kwargs = client.messages.create.call_args.kwargs
     assert kwargs["max_tokens"] == 1024
+
+
+# --- Max-completion-tokens (KAIROS-037) -----------------------------------
+
+
+def test_max_completion_tokens_takes_precedence_over_max_tokens():
+    """K037: when both fields present, the modern field wins."""
+    client = _build_mock_client()
+    provider = AnthropicProvider(api_key="k", client=client)
+    provider.call(
+        {
+            "model": "m",
+            "messages": [],
+            "max_completion_tokens": 500,
+            "max_tokens": 100,
+        }
+    )
+    kwargs = client.messages.create.call_args.kwargs
+    assert kwargs["max_tokens"] == 500
+
+
+def test_max_completion_tokens_alone_is_honored():
+    """K037: presence of the modern field overrides the 1024 default."""
+    client = _build_mock_client()
+    provider = AnthropicProvider(api_key="k", client=client)
+    provider.call(
+        {"model": "m", "messages": [], "max_completion_tokens": 750}
+    )
+    kwargs = client.messages.create.call_args.kwargs
+    assert kwargs["max_tokens"] == 750
+
+
+def test_legacy_max_tokens_still_works_when_modern_absent():
+    """K037: legacy field is still honoured as a fallback."""
+    client = _build_mock_client()
+    provider = AnthropicProvider(api_key="k", client=client)
+    provider.call({"model": "m", "messages": [], "max_tokens": 256})
+    kwargs = client.messages.create.call_args.kwargs
+    assert kwargs["max_tokens"] == 256
 
 
 # --- Response translation -------------------------------------------------
