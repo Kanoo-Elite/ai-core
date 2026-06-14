@@ -3,23 +3,31 @@
 Kanoo Elite AI abstraction package — PDPL-guardrailed LLM provider
 abstraction.
 
-## v0.1.0 — what's in here
+## v0.2.0 — what's in here
 
 - **PDPL guardrails** (request-side, regex-based) — `kanoo_ai_core.guardrails.pdpl`
-  - Redaction patterns: email, Gulf phone, KSA NID, BH NID
+  - Redaction patterns: email, Gulf phone, KSA NID, BH NID (unchanged from v0.1.0)
   - `security_log` event emitted via `structlog` → stdout for every call
 - **Anthropic provider** — `kanoo_ai_core.providers.anthropic.AnthropicProvider`
   - OpenAI Chat Completions ↔ Anthropic Messages API translation
-  - Non-streaming only in v0.1.0; no tool calls
+  - **NEW in v0.2.0:** streaming support via `stream_call()` — SSE chunks
+    in OpenAI `chat.completion.chunk` shape; client-disconnect cancels
+    the upstream Anthropic stream cleanly (KAIROS-032)
+  - **NEW in v0.2.0:** `max_completion_tokens` precedence over legacy
+    `max_tokens` — OpenClaw sends the modern field; v0.1.0 silently
+    defaulted to 1024 (KAIROS-037)
+  - No tool/function call translation or forwarding yet (deferred to
+    KAIROS-036)
 - **FastAPI server** — `kanoo_ai_core.server`
-  - `POST /v1/chat/completions` — OpenAI-compatible (consumed by OpenClaw's
-    `openai` provider with `OPENAI_BASE_URL` pointing here)
-  - `GET /healthz` — liveness + flag status
+  - `POST /v1/chat/completions` — OpenAI-compatible. Dispatches to
+    `StreamingResponse` (SSE) when `stream: true`, `JSONResponse` otherwise.
+  - `GET /healthz` — liveness + capability flags (`streaming_enabled: true`
+    added in v0.2.0)
 
 Future modules per architecture doc §14 (RAG, text-to-SQL, vector store,
 tenant isolation) land when downstream consumers materialise.
 
-## Network posture (v0.1.0)
+## Network posture
 
 The ai-core container needs outbound access to:
 
@@ -68,16 +76,28 @@ ADC: on a GCE VM with an attached service account, the container picks up
 credentials via the metadata server. On a developer workstation, mount
 your local ADC: `-v ~/.config/gcloud:/root/.config/gcloud:ro`.
 
-## Limitations explicitly accepted in v0.1.0
+## Limitations explicitly accepted in v0.2.0
 
-- No streaming (SSE deferred to v0.2.0; paired with response-side redaction)
-- No NER for named-individual redaction (every `security_log` entry carries
-  `ner_enabled: false` so the limitation is grep-able)
-- No response-side redaction
-- No tool/function call support
-- No prompt-cache hints (lost via the proxy-mode pattern; restored in
-  v0.2.0 via direct `anthropic-beta` header injection)
+- No NER for named-individual redaction — deferred to **KAIROS-034 /
+  v0.3.0**. Every `security_log` entry carries `ner_enabled: false`
+  so the limitation is grep-able.
+- No response-side redaction — deferred to **KAIROS-035 / v0.4.0**.
+  Decoupled from streaming per K032 sub-decision J (the original v0.1.0
+  README framed it as "paired with streaming"; K032 reversed that).
+- No tool/function call translation or forwarding — deferred to
+  **KAIROS-036** (conditional trigger: openclaw agent-mode flows start
+  sending tool defs on the wire).
+- No prompt-cache hints — separate capability with its own design
+  surface (cache key shape, TTL, invalidation). Remains backlog; no
+  specific version target.
 - Inbound auth: none (internal `ai-bridge` trust)
+
+### Changed in v0.2.0
+
+- **Streaming** — `stream: true` in the request body now returns SSE
+  (OpenAI `chat.completion.chunk` shape) instead of HTTP 400 (KAIROS-032).
+- **`max_completion_tokens`** — modern OpenAI field is now read with
+  precedence over legacy `max_tokens` (KAIROS-037).
 
 ## License
 
