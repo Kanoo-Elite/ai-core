@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Multi-stage build: install deps in builder, copy minimal runtime layer.
 
-FROM python:3.11-slim AS builder
+FROM python:3.11-slim@sha256:ae52c5bef62a6bdd42cd1e8dffef86b9cd284bde9427da79839de7a4b983e7ca AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir --target=/opt/ai-core/lib .
 
 
-FROM python:3.11-slim AS runtime
+FROM python:3.11-slim@sha256:ae52c5bef62a6bdd42cd1e8dffef86b9cd284bde9427da79839de7a4b983e7ca AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
